@@ -1,0 +1,67 @@
+/* Storage Page Container */
+.storage-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    min-height: 100vh;
+    background-color: #f8f8f8;
+}
+
+/* Page Title */
+.storage-container h2 {
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Search Bar */
+.search-bar {
+    width: 80%;
+    max-width: 400px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+/* Trip Grouping */
+.trip-group {
+    width: 80%;
+    max-width: 800px;
+    margin-bottom: 20px;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Trip Name Title */
+.trip-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #4caf50;
+    margin-bottom: 10px;
+}
+
+/* File Card */
+.file-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    background: #f0f0f0;
+    border-radius: 5px;
+    margin: 5px 0;
+}
+
+/* File Name */
+.file-name {
+    font-size: 1rem;
+    color: #333;
+}
+
+/* File Upload Date */
+.file-date {
+    font-size: 0.9rem;
+    color: #777;
+}

@@ -1,0 +1,107 @@
+/* WelcomePage.css */
+.welcome-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background-color: #f8f8f8;
+    overflow: hidden;
+  }
+  
+  .navbar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #a8c0a8;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 60px;
+    z-index: 1000;
+  }
+  
+  .menu-icon {
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  .profile-icon {
+    font-size: 24px;
+    cursor: pointer;
+    margin-right: 35px;
+  }
+  
+  .welcome-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 85%;
+    max-width: 1300px;
+    margin-top: 80px;
+    height: calc(100vh - 80px);
+  }
+  
+  .text-section {
+    width: 40%;
+    text-align: left;
+    padding-left: 1%;
+    margin-right: 2%;
+  }
+  
+  .text-section h1 {
+    font-size: 2rem;
+    color: #333;
+  }
+  
+  .text-section p {
+    color: #666;
+    margin: 20px 0;
+  }
+  
+  .buttons {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Adds space between buttons */
+    width: 100%;
+  }
+  
+  .join-btn, .login-btn {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1rem;
+    width: 100%;
+  }
+  
+  .join-btn {
+    background-color: #4caf50;
+    color: white;
+  }
+  
+  .login-btn {
+    background-color: #4caf50;
+    color: white;
+  }
+  
+
+  .image-section {
+    width: 50%;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  
+  .illustration {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 2px;
+    opacity: 0.7;
+  }
+  

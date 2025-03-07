@@ -1,0 +1,74 @@
+/* Itinerary Page Container */
+.itinerary-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background-color: #f8f8f8;
+  min-height: 100vh;
+}
+
+/* Page Title */
+.itinerary-container h2 {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+/* Itinerary List */
+.itinerary-list {
+  width: 80%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Each Day Group */
+.day-group {
+  background: white;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  margin-bottom: 10px;
+}
+
+/* Date Title (Click to Expand) */
+.day-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #4caf50;
+  cursor: pointer;
+  padding: 10px;
+  margin: 0;
+}
+
+.day-title:hover {
+  background-color: #e8f5e9;
+}
+
+/* Activities List (Dropdown Content) */
+.activities-list {
+  padding: 10px;
+}
+
+/* Activity Card */
+.activity-card {
+  background: #d8e8d8;
+  padding: 10px;
+  border-radius: 5px;
+  margin: 5px 0;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Activity Header */
+.activity-header {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Activity Details */
+.activity-details p {
+  margin: 5px 0;
+  font-size: 0.9rem;
+  color: #555;
+}
