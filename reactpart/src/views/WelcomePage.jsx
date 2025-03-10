@@ -8,8 +8,7 @@ const WelcomePage = () => {
   return (
     <div className="welcome-container">
       <nav className="navbar">
-        <div className="menu-icon">☰</div>
-        <div className="profile-icon">👤</div>
+
       </nav>
       <div className="welcome-content">
         <div className="text-section">
@@ -20,10 +19,7 @@ const WelcomePage = () => {
           <div className="buttons">
             <button className="join-btn" onClick={() => navigate("/signup")}>Join Now</button>
             <button className="login-btn" onClick={() => navigate("/login")}>Log In</button>
-            {/* this is temporary */}
-            <button className="dashboard-btn" onClick={() => navigate("/dashboard")}>
-            Go to Dashboard
-            </button>
+            
           </div>
         </div>
         <div className="image-section">

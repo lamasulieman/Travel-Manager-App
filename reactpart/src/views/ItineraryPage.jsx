@@ -1,72 +1,85 @@
 import React, { useState, useEffect } from "react";
+import { db } from "../services/firebaseConfig";
+import { collection, getDocs } from "firebase/firestore";
+import Navbar from "../components/Navbar";
 import "../styles/Itinerary.css";
+localStorage.setItem("currentTripId", "KM4wayZvPG76UtlzI4FI");
 
-const ItineraryView = ({ startDate, endDate }) => {
-  const [days, setDays] = useState([]);
-  const [expandedDay, setExpandedDay] = useState(null);
+console.log(localStorage.getItem("currentTripId"));
 
-  // Sample hardcoded activities (Later, these will be dynamic)
-  const activities = {
-    "2025-06-10": [
-      { name: "Visit Colosseum", time: "10:00 AM", location: "Rome", notes: "Tickets booked online" },
-      { name: "Dinner at Trastevere", time: "7:00 PM", location: "Rome", notes: "Recommended by locals" }
-    ],
-    "2025-06-11": [
-      { name: "Vatican Museums Tour", time: "9:30 AM", location: "Vatican City", notes: "Arrive early to avoid crowds" }
-    ]
-  };
+const ItineraryView = () => {
+  const [activitiesByDate, setActivitiesByDate] = useState({});
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      const tempDays = [];
+    const fetchActivities = async () => {
+      try {
+        const tripId = localStorage.getItem("currentTripId"); // ✅ Get from localStorage
+        if (!tripId) {
+          console.warn("No trip selected. Please choose a trip.");
+          setLoading(false);
+          return;
+        }
 
-      while (start <= end) {
-        tempDays.push(new Date(start).toISOString().split("T")[0]); // Format as YYYY-MM-DD
-        start.setDate(start.getDate() + 1);
+        const activitiesCollectionRef = collection(db, "Trips", tripId, "activities");
+        const querySnapshot = await getDocs(activitiesCollectionRef);
+
+        if (querySnapshot.empty) {
+          console.warn("No activities found for this trip.");
+          setActivitiesByDate({});
+          setLoading(false);
+          return;
+        }
+
+        const activitiesData = {};
+        querySnapshot.forEach((doc) => {
+          const activity = doc.data();
+          const date = activity.date; // Ensure 'date' field exists
+
+          if (!activitiesData[date]) {
+            activitiesData[date] = [];
+          }
+          activitiesData[date].push(activity);
+        });
+
+        setActivitiesByDate(activitiesData);
+      } catch (error) {
+        console.error("Error fetching activities:", error);
+      } finally {
+        setLoading(false);
       }
+    };
 
-      setDays(tempDays);
-    }
-  }, [startDate, endDate]);
-
-  // Toggle dropdown for a selected day
-  const toggleDay = (day) => {
-    setExpandedDay(expandedDay === day ? null : day);
-  };
+    fetchActivities();
+  }, []);
 
   return (
     <div className="itinerary-container">
-      <h2>Trip Itinerary</h2>
-      <div className="itinerary-list">
-        {days.map((day, index) => (
-          <div key={index} className="day-group">
-            {/* Date acts like a folder title */}
-            <h3 className="day-title" onClick={() => toggleDay(day)}>
-              📅 {new Date(day).toDateString()}
-            </h3>
+      <Navbar />
+      <h2>Itinerary</h2>
 
-            {/* Expandable Activities Section */}
-            {expandedDay === day && (
-              <div className="activities-list">
-                {activities[day]?.map((activity, i) => (
-                  <div key={i} className="activity-card">
-                    <div className="activity-header">
-                      <strong>{activity.name}</strong>
-                    </div>
-                    <div className="activity-details">
-                      <p><strong>Time:</strong> {activity.time}</p>
-                      <p><strong>Location:</strong> {activity.location}</p>
-                      <p><strong>Notes:</strong> {activity.notes}</p>
-                    </div>
-                  </div>
-                )) || <p>No activities planned.</p>}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+      {loading ? (
+        <p>Loading itinerary...</p>
+      ) : Object.keys(activitiesByDate).length > 0 ? (
+        <div className="calendar-grid">
+          {Object.entries(activitiesByDate).map(([date, activities]) => (
+            <div key={date} className="calendar-day">
+              <h3>📅 {new Date(date).toDateString()}</h3>
+              {activities.map((activity, index) => (
+                <div key={index} className="activity-item">
+                  <p>
+                    <strong>{activity.time} - {activity.name}</strong>
+                  </p>
+                  <p>📍 {activity.location}</p>
+                  {activity.notes && <p>📝 {activity.notes}</p>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p>No activities found for this trip.</p>
+      )}
     </div>
   );
 };

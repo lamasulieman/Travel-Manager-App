@@ -6,6 +6,8 @@ import SignupPage from "./views/SignupPage";
 import LoginPage from "./views/LoginPage";
 import MainDashboard from "./views/MainPage";
 import ItineraryView from "./views/ItineraryPage";
+import "./services/firebaseConfig"; // ✅ Ensures Firebase initializes
+
 
 // ✅ Check if these files exist before importing
 import ExpensesReviews from "./views/ExpensesReviews"; // Add this if the file exists
