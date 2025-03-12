@@ -1,33 +1,32 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { getAuth, signOut, onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
+import { logoutUser, auth } from "../controllers/authController";
 import "../styles/Navbar.css";
-
 const Navbar = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
-  const auth = getAuth();
 
   const toggleMenu = () => {
     setMenuOpen(!menuOpen);
   };
 
-  // Listen for authentication state changes
+  // ✅ Listen for authentication state changes using authController
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user); // ✅ Updates state when user logs in or out
+      setUser(user);
     });
 
     return () => unsubscribe();
-  }, [auth]);
+  }, []);
 
-  // Logout function
+  // ✅ Logout function using authController
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      setUser(null); // ✅ Ensure user state updates after logout
+      await logoutUser();
+      setUser(null);
       alert("Logged out successfully!");
       navigate("/");
     } catch (error) {
@@ -76,7 +75,7 @@ const Navbar = () => {
         </div>
       )}
 
-      <div className="profile-icon"></div>
+      <div className="profile-placeholder"></div> {/* Keeps spacing correct */}
     </nav>
   ) : null; // 🔥 If user is logged out, Navbar won't be rendered
 };

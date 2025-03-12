@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { getFirestore, doc, setDoc } from "firebase/firestore";
-import { app } from "../services/firebaseConfig";
-import "../styles/Signup.css"; // Make sure you import the CSS file
-
-const auth = getAuth(app);
-const db = getFirestore(app);
+import { signUpUser } from "../controllers/authController";
+import "../styles/Signup.css";
 
 const SignupPage = () => {
   const [email, setEmail] = useState("");
@@ -19,7 +14,7 @@ const SignupPage = () => {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setError("");
-    
+
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -27,15 +22,7 @@ const SignupPage = () => {
 
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Store user data in Firestore
-      await setDoc(doc(db, "Users", user.uid), {
-        email: user.email,
-        createdAt: new Date(),
-      });
-
+      await signUpUser(email, password);
       alert("User registered successfully!");
       navigate("/dashboard");
     } catch (err) {
@@ -49,7 +36,7 @@ const SignupPage = () => {
     <div className="signup-container">
       <div className="signup-form">
         <h2>Sign Up</h2>
-        {error && <p className="error-message">{error}</p>} {/* ✅ Modified error message */}
+        {error && <p className="error-message">{error}</p>}
         <form onSubmit={handleSignUp}>
           <input
             type="email"

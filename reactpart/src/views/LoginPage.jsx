@@ -1,26 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { app } from "../services/firebaseConfig";
+import { loginUser, checkAuthState } from "../controllers/authController";
 import "../styles/Login.css";
-
-const auth = getAuth(app);
 
 const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true); // ✅ Prevents premature redirection
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const navigate = useNavigate();
 
-  // ✅ Wait for Firebase to confirm if user is logged in before rendering inputs
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = checkAuthState((user) => {
       if (user) {
         navigate("/dashboard");
       } else {
-        setCheckingAuth(false); // ✅ Allows inputs to be displayed if user is not logged in
+        setCheckingAuth(false);
       }
     });
 
@@ -33,7 +29,7 @@ const LoginPage = () => {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await loginUser(email, password);
       alert("Login successful!");
       navigate("/dashboard");
     } catch (err) {
@@ -44,7 +40,7 @@ const LoginPage = () => {
   };
 
   return checkingAuth ? (
-    <div className="login-container"><h2>Loading...</h2></div> // ✅ Prevents UI glitches
+    <div className="login-container"><h2>Loading...</h2></div>
   ) : (
     <div className="login-container">
       <div className="login-form">
