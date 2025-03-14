@@ -1,21 +1,45 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { fetchExpenses, addExpenseToTrip } from "../controllers/tripController";
 import "../styles/Expense.css";
 
 const Expenses = () => {
-  // Sample hardcoded expenses (Later, these will be dynamic)
-  const [expenses, setExpenses] = useState([
-    { id: 1, category: "Flight", name: "Budapest to Rome", amount: 120, date: "2025-06-10" },
-    { id: 2, category: "Hotel", name: "Hilton Rome - 2 Nights", amount: 250, date: "2025-06-10" },
-    { id: 3, category: "Food", name: "Dinner at Trastevere", amount: 50, date: "2025-06-11" },
-    { id: 4, category: "Activity", name: "Colosseum Tour", amount: 30, date: "2025-06-12" },
-  ]);
-
+  const [expenses, setExpenses] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [amount, setAmount] = useState("");
+  const [category, setCategory] = useState("");
+  const [name, setName] = useState("");
+  const [selectedTrip, setSelectedTrip] = useState(localStorage.getItem("currentTripId"));
 
-  // Calculate total expenses
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+  useEffect(() => {
+    const loadExpenses = async () => {
+      if (selectedTrip) {
+        const tripExpenses = await fetchExpenses(selectedTrip);
+        setExpenses(tripExpenses);
+      }
+    };
+    loadExpenses();
+  }, [selectedTrip]);
 
-  // Filter expenses based on search query
+  const handleAddExpense = async () => {
+    if (!name || !category || !amount ) {
+      alert("Please fill in all fields.");
+      return;
+    }
+
+    try {
+      await addExpenseToTrip(selectedTrip, name, category, parseFloat(amount));
+      alert("Expense added successfully!");
+      setName("");
+      setCategory("");
+      setAmount("");
+      const updatedExpenses = await fetchExpenses(selectedTrip);
+      setExpenses(updatedExpenses);
+    } catch (error) {
+      console.error("Error adding expense:", error);
+    }
+  };
+
+  const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const filteredExpenses = expenses.filter(expense =>
     expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     expense.category.toLowerCase().includes(searchQuery.toLowerCase())
@@ -23,9 +47,8 @@ const Expenses = () => {
 
   return (
     <div className="expenses-container">
-      <h2>Expenses </h2>
+      <h2>Expenses</h2>
 
-      {/* Search Bar */}
       <input
         type="text"
         className="search-bar"
@@ -34,19 +57,38 @@ const Expenses = () => {
         onChange={(e) => setSearchQuery(e.target.value)}
       />
 
-      {/* Total Expenses */}
       <div className="total-expense">
-        <h3>Total Spent: ${totalExpenses}</h3>
+      <h3>Total Spent: ${totalExpenses.toFixed(2)}</h3>
+
+
       </div>
 
-      {/* Expense List */}
+      <button onClick={() => document.getElementById("expenseForm").style.display = "block"}>+ Add Expense</button>
+
+      <div id="expenseForm" style={{ display: "none" }}>
+        <input type="text" placeholder="Expense Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input type="number" placeholder="Amount ($)" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="">Select Category</option>
+          <option value="Food">Food</option>
+          <option value="Transport">Transport</option>
+          <option value="Shopping">Shopping</option>
+          <option value="Hotel">Hotel</option>
+          <option value="Activity">Activity</option>
+          <option value="Flight">Flight</option>
+          <option value="Flight">Other</option>
+
+        </select>
+        <button onClick={handleAddExpense}>Save Expense</button>
+      </div>
+
       <div className="expense-list">
         {filteredExpenses.map((expense) => (
           <div key={expense.id} className="expense-card">
             <span className="expense-name">{expense.name}</span>
             <span className="expense-category">{expense.category}</span>
-            <span className="expense-amount">${expense.amount}</span>
-          </div>
+            <span className="expense-amount">${Number(expense.amount || 0).toFixed(2)}</span>
+            </div>
         ))}
       </div>
     </div>
