@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getUserTrips, addTrip, addActivityToTrip, fetchActivities } from "../controllers/tripController";
+import { getUserTrips, addTrip, addActivityToTrip, fetchActivities ,addExpenseToTrip , uploadFile , fetchExpenses} from "../controllers/tripController";
 import Navbar from "../components/Navbar";
 import "../styles/Main.css";
 
@@ -22,7 +22,16 @@ const MainDashboard = () => {
   const [activityTime, setActivityTime] = useState("");
   const [activityLocation, setActivityLocation] = useState("");
   const [activityNotes, setActivityNotes] = useState("");
+  const [expenseAmount, setExpenseAmount] = useState("");
+  const [expenseCategory, setExpenseCategory] = useState("Food");
+  const [expenseNotes, setExpenseNotes] = useState("manual expense");
+  const [selectedTripForExpense, setSelectedTripForExpense] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedTripForUpload, setSelectedTripForUpload] = useState("");
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [expenseCount, setExpenseCount] = useState(0);
 
+  
   useEffect(() => {
     const fetchTrips = async () => {
       try {
@@ -32,6 +41,7 @@ const MainDashboard = () => {
           setSelectedTrip(userTrips[0]); 
           localStorage.setItem("currentTripId", userTrips[0].id);
           fetchNextActivity(userTrips[0].id);
+          fetchTripExpenses(userTrips[0].id); // ✅ Fetch expenses on load
         }
       } catch (error) {
         console.error("Error fetching trips:", error);
@@ -46,6 +56,7 @@ const MainDashboard = () => {
     localStorage.setItem("currentTripId", trip.id);
     console.log("Updated trip ID in storage:", trip.id);
     fetchNextActivity(trip.id);
+    fetchTripExpenses(trip.id); 
   };
 
   const fetchNextActivity = async (tripId) => {
@@ -59,6 +70,23 @@ const MainDashboard = () => {
       console.error("Error fetching activities:", error);
     }
   };
+  const fetchTripExpenses = async (tripId) => {
+    if (!tripId) return;
+  
+    try {
+      const expenses = await fetchExpenses(tripId);
+      const total =  expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+
+      
+      setTotalExpenses(total);
+      setExpenseCount(expenses.length);
+      
+      console.log("Fetched expenses:", expenses);
+    } catch (error) {
+      console.error("Error fetching expenses:", error);
+    }
+  };
+  
 
   const handleAddTrip = async (e) => {
     e.preventDefault();
@@ -108,6 +136,58 @@ const MainDashboard = () => {
     }
   };
 
+  const handleFileChange = (event) => {
+    if (event.target.files.length > 0) {
+      setSelectedFile(event.target.files[0]);
+    }
+  };
+  
+  const handleUploadDocument = async () => {
+    if (!selectedTripForUpload) {
+      alert("Please select a trip.");
+      return;
+    }
+    if (!selectedFile) {
+      alert("Please select a file to upload.");
+      return;
+    }
+  
+    try {
+      await uploadFile(selectedFile, selectedTripForUpload);
+      alert("File uploaded successfully!");
+      setSelectedFile(null);
+      setUploadPopupOpen(false);
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Failed to upload file.");
+    }
+  };
+
+  const handleAddExpense = async () => {
+    if (!selectedTripForExpense) {
+      alert("Please select a trip.");
+      return;
+    }
+    if (!expenseAmount) {
+      alert("Please enter an amount.");
+      return;
+    }
+  
+    try {
+      await addExpenseToTrip(selectedTripForExpense, expenseNotes, expenseCategory, expenseAmount);
+      alert("Expense added successfully!");
+      setExpenseAmount("");
+      setExpenseCategory("Food");
+      setExpenseNotes("");
+      setExpensePopupOpen(false);
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      alert("Failed to add expense.");
+    }
+  };
+
+  
+
   return (
     <div className="dashboard-container">
       <Navbar />
@@ -118,6 +198,37 @@ const MainDashboard = () => {
           <button className="new-journey-btn" onClick={() => setTripPopupOpen(true)}>
             + Plan a New Journey
           </button>
+          {isTripPopupOpen && (
+  <div className="popup">
+    <div className="popup-content">
+      <h3>Plan a New Journey</h3>
+      <form onSubmit={handleAddTrip}>  {/* ✅ Ensures handleAddTrip() is used */}
+        <input
+          type="text"
+          placeholder="Trip Name"
+          value={tripName}
+          onChange={(e) => setTripName(e.target.value)}
+          required
+        />
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          required
+        />
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          required
+        />
+        <button className="save-btn" type="submit">Create Trip</button>  
+        <button className="close-btn" onClick={() => setTripPopupOpen(false)}>Close</button>
+      </form>
+    </div>
+  </div>
+)}
+
         </div>
 
         {selectedTrip ? (
@@ -161,8 +272,8 @@ const MainDashboard = () => {
 
         <div className="expense-tracker">
           <h3>Expense Overview</h3>
-          <p><strong>Total Expenses:</strong> $120</p>
-          <p>Tracked from 2 activities</p>
+          <p><strong>Amount spent: </strong> ${Number(totalExpenses).toFixed(2)}</p>
+          <p>Tracked from {expenseCount} {expenseCount === 1 ? "activity" : "activities"}</p>
         </div>
       </div>
 
@@ -205,32 +316,59 @@ const MainDashboard = () => {
       )}
       {/* Upload Doc Popup */}
       {isUploadPopupOpen && (
-        <div className="popup">
-          <div className="popup-content">
-            <h3>Upload a Document</h3>
-            <input type="file" />
-            <button className="save-btn">Submit doc</button> {/* ✅ Added Submit Button */}
-            <button className="close-btn" onClick={() => setUploadPopupOpen(false)}>Close</button>
-          </div>
-        </div>
-      )}
-      {/* ✅ Add Manual Expense Popup with Submit Button */}
+  <div className="popup">
+    <div className="popup-content">
+      <h3>Upload a Document</h3>
+      <select value={selectedTripForUpload} onChange={(e) => setSelectedTripForUpload(e.target.value)} required>
+        <option value="">Select Trip</option>
+        {trips.map((trip) => (
+          <option key={trip.id} value={trip.id}>{trip.tripName}</option>
+        ))}
+      </select>
+      <input type="file" onChange={handleFileChange} />
+      <button className="save-btn" onClick={handleUploadDocument}>Submit doc</button>
+      <button className="close-btn" onClick={() => setUploadPopupOpen(false)}>Close</button>
+    </div>
+  </div>
+)}
       {isExpensePopupOpen && (
-        <div className="popup">
-          <div className="popup-content">
-            <h3>Add Manual Expense</h3>
-            <input type="number" placeholder="Amount ($)" required />
-            <select>
-              <option value="Food">Food</option>
-              <option value="Transport">Transport</option>
-              <option value="Shopping">Shopping</option>
-            </select>
-            <textarea placeholder="Additional Notes"></textarea>
-            <button className="save-btn">Add Expense</button> 
-            <button className="close-btn" onClick={() => setExpensePopupOpen(false)}>Close</button>
-          </div>
-        </div>
-      )}
+  <div className="popup">
+    <div className="popup-content">
+      <h3>Add Manual Expense</h3>
+      <select value={selectedTripForExpense} onChange={(e) => setSelectedTripForExpense(e.target.value)} required>
+        <option value="">Select Trip</option>
+        {trips.map((trip) => (
+          <option key={trip.id} value={trip.id}>{trip.tripName}</option>
+        ))}
+      </select>
+      <input
+        type="number"
+        placeholder="Amount ($)"
+        value={expenseAmount}
+        onChange={(e) => setExpenseAmount(e.target.value)}
+        required
+      />
+      <select value={expenseCategory} onChange={(e) => setExpenseCategory(e.target.value)}>
+        <option value="Food">Food</option>
+        <option value="Transport">Transport</option>
+        <option value="Shopping">Shopping</option>
+        <option value="Shopping">Hotel</option>
+        <option value="Shopping">Activity</option>
+        <option value="Shopping">Flight</option>
+        <option value="Shopping">Other</option>
+
+      </select>
+      <textarea
+        placeholder="short description/Notes"
+        value={expenseNotes}
+        onChange={(e) => setExpenseNotes(e.target.value)}
+      ></textarea>
+      <button className="save-btn" onClick={handleAddExpense}>Add Expense</button> 
+      <button className="close-btn" onClick={() => setExpensePopupOpen(false)}>Close</button>
+    </div>
+  </div>
+)}
+
     </div>
   );
 };

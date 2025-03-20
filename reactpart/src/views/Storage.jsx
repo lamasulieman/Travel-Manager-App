@@ -1,32 +1,85 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { uploadFile } from "../controllers/tripController";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { collection, getDocs,addDoc } from "firebase/firestore";
+import { db, auth, storage } from "../services/firebaseConfig";  
 import "../styles/Storage.css";
 
 const Storage = () => {
-  // Sample stored files grouped by trip name
-  const [files, setFiles] = useState([
-    { name: "Flight Ticket - Budapest to Rome.pdf", trip: "Rome 2025", date: "2025-02-15" },
-    { name: "Hotel Booking - Hilton Rome.png", trip: "Rome 2025", date: "2025-02-14" },
-    { name: "Colosseum Entry Ticket.pdf", trip: "Rome 2025", date: "2025-02-12" },
-    { name: "Flight Ticket - Tokyo Roundtrip.pdf", trip: "Japan 2024", date: "2024-07-20" },
-    { name: "Train Pass - JR Rail Pass.pdf", trip: "Japan 2024", date: "2024-07-18" },
-  ]);
+  const [files, setFiles] = useState([]); // Store uploaded files
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [searchQuery, setSearchQuery] = useState(""); // Search input state
 
-  const [searchQuery, setSearchQuery] = useState("");
+  // Handle file selection
+  const handleFileChange = (event) => {
+    if (event.target.files.length > 0) {
+      setSelectedFile(event.target.files[0]);
+    }
+  };
 
-  // Sort files by newest first
-  const sortedFiles = [...files].sort((a, b) => new Date(b.date) - new Date(a.date));
+  // Handle file upload
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      alert("Please select a file first.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      alert("You must be logged in to upload files.");
+      return;
+    }
+
+    const storageRef = ref(storage, `uploads/${user.uid}/${selectedFile.name}`);
+
+    try {
+      const metadata = { contentType: selectedFile.type };
+      const snapshot = await uploadBytes(storageRef, selectedFile, metadata);
+      const downloadURL = await getDownloadURL(snapshot.ref);
+
+      console.log("File uploaded successfully:", downloadURL);
+
+      await addDoc(collection(db, "users", user.uid, "files"), {
+        name: selectedFile.name,
+        url: downloadURL,
+        uploadedAt: new Date().toISOString(),
+      });
+
+      alert("File uploaded!");
+      setFiles((prevFiles) => [...prevFiles, { name: selectedFile.name, url: downloadURL }]);
+      setSelectedFile(null);
+    } catch (error) {
+      console.error("Upload failed:", error);
+      alert("Upload failed. Please try again.");
+    }
+  };
+
+  // Fetch user files from Firestore
+  const fetchUserFiles = async () => {
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const filesCollection = collection(db, "users", user.uid, "files");
+      const querySnapshot = await getDocs(filesCollection);
+      
+      const fetchedFiles = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setFiles(fetchedFiles);
+    } catch (error) {
+      console.error("Error fetching files:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserFiles();
+  }, []);
 
   // Filter files based on search query
-  const filteredFiles = sortedFiles.filter(file =>
-    file.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  // Group files by trip name
-  const groupedFiles = filteredFiles.reduce((acc, file) => {
-    if (!acc[file.trip]) acc[file.trip] = [];
-    acc[file.trip].push(file);
-    return acc;
-  }, {});
+  const filteredFiles = files.filter(file => file.name.toLowerCase().includes(searchQuery.toLowerCase()));
 
   return (
     <div className="storage-container">
@@ -35,25 +88,30 @@ const Storage = () => {
       {/* Search Bar */}
       <input
         type="text"
-        className="search-bar"
         placeholder="Search files..."
         value={searchQuery}
         onChange={(e) => setSearchQuery(e.target.value)}
+        className="search-bar"
       />
 
-      {/* Display files grouped by trip name */}
+      {/* File Upload Input */}
+      <input type="file" onChange={handleFileChange} />
+      <button onClick={handleFileUpload} disabled={!selectedFile}>Upload File</button>
+
+      {/* Display Uploaded Files */}
       <div className="file-list">
-        {Object.keys(groupedFiles).map((trip, index) => (
-          <div key={index} className="trip-group">
-            <h3 className="trip-title">📂 {trip}</h3>
-            {groupedFiles[trip].map((file, i) => (
-              <div key={i} className="file-card">
-                <span className="file-name">{file.name}</span>
-                <span className="file-date">{new Date(file.date).toDateString()}</span>
-              </div>
-            ))}
-          </div>
-        ))}
+        {filteredFiles.length === 0 ? (
+          <p>No files found.</p>
+        ) : (
+          filteredFiles.map((file, index) => (
+            <div key={index} className="file-card">
+              <p>{file.name}</p>
+              <a href={file.url} target="_blank" rel="noopener noreferrer">
+                Download
+              </a>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

@@ -23,3 +23,4 @@ yarn-debug.log*
 yarn-error.log*
 # Ignore environment variables
 .env
+YES/google-cloud-sdk/
