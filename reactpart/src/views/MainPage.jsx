@@ -202,7 +202,7 @@ const MainDashboard = () => {
   <div className="popup">
     <div className="popup-content">
       <h3>Plan a New Journey</h3>
-      <form onSubmit={handleAddTrip}>  {/* ✅ Ensures handleAddTrip() is used */}
+      <form onSubmit={handleAddTrip}>  {/*  Ensures handleAddTrip() is used */}
         <input
           type="text"
           placeholder="Trip Name"
