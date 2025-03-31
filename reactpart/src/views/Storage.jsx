@@ -1,91 +1,171 @@
 import React, { useState, useEffect } from "react";
-import { uploadFile } from "../controllers/tripController";
-import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { collection, getDocs,addDoc } from "firebase/firestore";
-import { db, auth, storage } from "../services/firebaseConfig";  
+import {
+  uploadFile,
+  fetchTripFiles,
+  addActivityToTrip,
+  addExpenseToTrip,
+} from "../controllers/tripController";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  query,
+  orderBy,
+  limit,
+  where,
+} from "firebase/firestore";
+import { db, auth } from "../services/firebaseConfig";
 import "../styles/Storage.css";
 
 const Storage = () => {
-  const [files, setFiles] = useState([]); // Store uploaded files
+  const [files, setFiles] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [searchQuery, setSearchQuery] = useState(""); // Search input state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedTripId, setSelectedTripId] = useState("");
+  const [userTrips, setUserTrips] = useState([]);
+  const [showPopup, setShowPopup] = useState(false);
+  const [popupView, setPopupView] = useState("loading");
+  const [ocrText, setOcrText] = useState("");
+  const [aiText, setAiText] = useState("");
 
-  // Handle file selection
   const handleFileChange = (event) => {
     if (event.target.files.length > 0) {
       setSelectedFile(event.target.files[0]);
     }
   };
 
-  // Handle file upload
   const handleFileUpload = async () => {
-    if (!selectedFile) {
-      alert("Please select a file first.");
-      return;
-    }
+    if (!selectedFile) return alert("Please select a file first.");
+    if (!selectedTripId) return alert("Please select a trip first.");
 
-    const user = auth.currentUser;
-    if (!user) {
-      alert("You must be logged in to upload files.");
-      return;
-    }
-
-    const storageRef = ref(storage, `uploads/${user.uid}/${selectedFile.name}`);
+    setShowPopup(true);
+    setPopupView("loading");
+    setOcrText("");
+    setAiText("");
 
     try {
-      const metadata = { contentType: selectedFile.type };
-      const snapshot = await uploadBytes(storageRef, selectedFile, metadata);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-
-      console.log("File uploaded successfully:", downloadURL);
-
-      await addDoc(collection(db, "users", user.uid, "files"), {
-        name: selectedFile.name,
-        url: downloadURL,
-        uploadedAt: new Date().toISOString(),
-      });
-
-      alert("File uploaded!");
-      setFiles((prevFiles) => [...prevFiles, { name: selectedFile.name, url: downloadURL }]);
-      setSelectedFile(null);
+      const url = await uploadFile(selectedFile, selectedTripId);
+      if (url) {
+        await fetchUserFiles();
+        await waitForOcrResult(selectedFile.name);
+      }
     } catch (error) {
       console.error("Upload failed:", error);
       alert("Upload failed. Please try again.");
+    } finally {
+      setSelectedFile(null);
     }
   };
 
-  // Fetch user files from Firestore
+  const waitForOcrResult = async (fileName) => {
+    const ocrRef = collection(db, "ocrResults");
+    const q = query(ocrRef, orderBy("timestamp", "desc"), limit(5));
+
+    const check = async () => {
+      const snapshot = await getDocs(q);
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        if (data.file === fileName) {
+          setOcrText(data.originalText || "No OCR text found.");
+          setPopupView("ocr");
+
+          setTimeout(() => {
+            setPopupView("ai");
+            setAiText(data.parsed || "No AI results found.");
+
+            // Attempt auto-insert into trip
+            try {
+              const parsed = JSON.parse(data.parsed);
+              const activityName = `${parsed.transport_mode} from ${parsed.from} to ${parsed.to}`;
+              addActivityToTrip(
+                selectedTripId,
+                activityName,
+                parsed.date || "",
+                parsed.time || "",
+                parsed.from || "",
+                "Auto-added from uploaded document"
+              );
+
+              if (parsed.price) {
+                addExpenseToTrip(
+                  selectedTripId,
+                  `Expense for ${activityName}`,
+                  "Transport",
+                  parseFloat(parsed.price.replace(/[^0-9.]/g, "")) || 0
+                );
+              }
+            } catch (error) {
+              console.error("Failed to auto-add activity/expense:", error);
+            }
+          }, 3000);
+          return;
+        }
+      }
+      setTimeout(check, 2000);
+    };
+
+    check();
+  };
+
   const fetchUserFiles = async () => {
+    const user = auth.currentUser;
+    if (!user || !selectedTripId) return;
+
+    const filesCollection = collection(db, "users", user.uid, "files");
+    const q = query(filesCollection, where("tripId", "==", selectedTripId));
+    const querySnapshot = await getDocs(q);
+
+    const fetchedFiles = querySnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    setFiles(fetchedFiles);
+  };
+
+  const fetchUserTrips = async () => {
     const user = auth.currentUser;
     if (!user) return;
 
-    try {
-      const filesCollection = collection(db, "users", user.uid, "files");
-      const querySnapshot = await getDocs(filesCollection);
-      
-      const fetchedFiles = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+    const tripsCollection = collection(db, "Trips");
+    const snapshot = await getDocs(tripsCollection);
+    const trips = snapshot.docs
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((trip) => trip.createdBy === user.uid);
 
-      setFiles(fetchedFiles);
-    } catch (error) {
-      console.error("Error fetching files:", error);
-    }
+    setUserTrips(trips);
+    if (trips.length > 0) setSelectedTripId(trips[0].id);
   };
 
   useEffect(() => {
-    fetchUserFiles();
+    fetchUserTrips();
   }, []);
 
-  // Filter files based on search query
-  const filteredFiles = files.filter(file => file.name.toLowerCase().includes(searchQuery.toLowerCase()));
+  useEffect(() => {
+    fetchUserFiles();
+  }, [selectedTripId]);
+
+  const filteredFiles = files.filter((file) =>
+    file.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="storage-container">
       <h2>Storage</h2>
 
-      {/* Search Bar */}
+      <select
+        value={selectedTripId}
+        onChange={(e) => setSelectedTripId(e.target.value)}
+        className="trip-selector"
+      >
+        <option value="">Select Trip</option>
+        {userTrips.map((trip) => (
+          <option key={trip.id} value={trip.id}>
+            {trip.tripName}
+          </option>
+        ))}
+      </select>
+
       <input
         type="text"
         placeholder="Search files..."
@@ -94,11 +174,11 @@ const Storage = () => {
         className="search-bar"
       />
 
-      {/* File Upload Input */}
       <input type="file" onChange={handleFileChange} />
-      <button onClick={handleFileUpload} disabled={!selectedFile}>Upload File</button>
+      <button onClick={handleFileUpload} disabled={!selectedFile}>
+        Upload File
+      </button>
 
-      {/* Display Uploaded Files */}
       <div className="file-list">
         {filteredFiles.length === 0 ? (
           <p>No files found.</p>
@@ -113,6 +193,36 @@ const Storage = () => {
           ))
         )}
       </div>
+
+      {/* 📦 OCR / AI Result Popup */}
+      {showPopup && (
+        <div className="popup-overlay">
+          <div className="popup-processing">
+            <h3>OCR & AI Processing</h3>
+
+            {popupView === "loading" && (
+              <p>⏳ Uploading and analyzing file...</p>
+            )}
+
+            {popupView === "ocr" && (
+              <>
+                <h4>📄 OCR Text</h4>
+                <pre className="popup-text">{ocrText}</pre>
+              </>
+            )}
+
+            {popupView === "ai" && (
+              <>
+                <h4>🧠 AI Extracted Info</h4>
+                <pre className="popup-text">{aiText}</pre>
+                <button className="close-btn" onClick={() => setShowPopup(false)}>
+                  Close
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

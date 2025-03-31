@@ -19,9 +19,7 @@ export const addTrip = async (tripName, startDate, endDate) => {
 
   return docRef.id; 
 };
-/**
- * Function to add an expense to a trip.
- */
+
 export const addExpenseToTrip = async (tripId, name, category, amount) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not logged in.");
@@ -34,9 +32,6 @@ export const addExpenseToTrip = async (tripId, name, category, amount) => {
   });
 };
 
-/**
- * Function to fetch expenses for a specific trip.
- */
 export const fetchExpenses = async (tripId) => {
   if (!tripId) return [];
 
@@ -50,11 +45,7 @@ export const fetchExpenses = async (tripId) => {
     return [];
   }
 };
-/**
- * Uploads a file to Firebase Storage and saves metadata in Firestore.
- * @param {File} file - The file to upload.
- * @param {string} tripId - The ID of the trip the file is associated with.
- */
+
 export const uploadFile = async (file, tripId) => {
   const user = auth.currentUser;
   if (!user) {
@@ -63,25 +54,19 @@ export const uploadFile = async (file, tripId) => {
     return;
   }
 
-  // ✅ Change the storage path to be consistent with the Storage page
   const storageRef = ref(storage, `uploads/${user.uid}/${file.name}`);
 
   try {
-    console.log("Uploading file to:", storageRef.fullPath);
-
     const snapshot = await uploadBytes(storageRef, file);
     const downloadURL = await getDownloadURL(snapshot.ref);
 
-    console.log("File uploaded successfully:", downloadURL);
-
-    // ✅ Save file metadata in Firestore under `users/{userId}/files`
     await addDoc(collection(db, "users", user.uid, "files"), {
       name: file.name,
       url: downloadURL,
       uploadedAt: new Date().toISOString(),
+      tripId, // ✅ associate with trip
     });
 
-    console.log("File metadata saved in Firestore.");
     return downloadURL;
   } catch (error) {
     console.error("Error uploading file:", error);
@@ -89,20 +74,17 @@ export const uploadFile = async (file, tripId) => {
   }
 };
 
-
-/**
- * Fetches all files uploaded under a specific trip.
- * @param {string} tripId - The ID of the trip.
- */
-export const fetchTripFiles = async () => {
+export const fetchTripFiles = async (tripId) => {
   const user = auth.currentUser;
   if (!user) return [];
 
   const filesCollection = collection(db, "users", user.uid, "files");
-  const querySnapshot = await getDocs(filesCollection);
+  const q = query(filesCollection, where("tripId", "==", tripId));
+  const snapshot = await getDocs(q);
 
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
+
 export const getUserTrips = async () => {
   const user = auth.currentUser;
   if (!user) return [];
@@ -113,7 +95,7 @@ export const getUserTrips = async () => {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 };
 
-export const addActivityToTrip = async (tripId, name, date ,time, location, notes) => {
+export const addActivityToTrip = async (tripId, name, date, time, location, notes) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not logged in.");
 
