@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getUserTrips, addTrip, addActivityToTrip, fetchActivities ,addExpenseToTrip , uploadFile , fetchExpenses} from "../controllers/tripController";
+import { getUserTrips, addTrip, addActivityToTrip, fetchActivities ,addExpenseToTrip , uploadFile , fetchExpenses,updateTrip,deleteTrip} from "../controllers/tripController";
 import Navbar from "../components/Navbar";
 import "../styles/Main.css";
 
@@ -41,7 +41,7 @@ const MainDashboard = () => {
           setSelectedTrip(userTrips[0]); 
           localStorage.setItem("currentTripId", userTrips[0].id);
           fetchNextActivity(userTrips[0].id);
-          fetchTripExpenses(userTrips[0].id); // ✅ Fetch expenses on load
+          fetchTripExpenses(userTrips[0].id); 
         }
       } catch (error) {
         console.error("Error fetching trips:", error);
@@ -90,18 +90,56 @@ const MainDashboard = () => {
 
   const handleAddTrip = async (e) => {
     e.preventDefault();
+  
     try {
-      await addTrip(tripName, startDate, endDate);
-      alert("Trip added successfully!");
+      if (selectedTrip) {
+        // Editing
+        await updateTrip(selectedTrip.id, {
+          tripName,
+          startDate,
+          endDate,
+        });
+        alert("Trip updated!");
+      } else {
+        // New trip
+        await addTrip(tripName, startDate, endDate);
+        alert("Trip added!");
+      }
+  
       setTripName("");
       setStartDate("");
       setEndDate("");
       setTripPopupOpen(false);
+      setSelectedTrip(null);
       window.location.reload();
     } catch (error) {
-      console.error("Error adding trip:", error);
+      console.error("Error adding/editing trip:", error);
     }
   };
+  
+
+  // 🗑️ DELETE
+const handleDeleteTrip = async (tripId) => {
+  if (window.confirm("Are you sure you want to delete this trip?")) {
+    try {
+      await deleteTrip(tripId);
+      alert("Trip deleted.");
+      setTrips((prev) => prev.filter((trip) => trip.id !== tripId));
+    } catch (err) {
+      console.error("Error deleting trip:", err);
+      alert("Failed to delete trip.");
+    }
+  }
+};
+
+// 📝 EDIT
+const handleEditTrip = (trip) => {
+  setTripName(trip.tripName);
+  setStartDate(trip.startDate);
+  setEndDate(trip.endDate);
+  setSelectedTrip(trip); // this will now act as "currently editing"
+  setTripPopupOpen(true);
+};
 
   const handleAddActivity = async () => {
     if (!selectedTripForActivity) {
@@ -251,17 +289,26 @@ const MainDashboard = () => {
           <p>No upcoming activities.</p>
         )}
 
-        {trips.length > 0 && (
-          <div className="trip-list">
-            <h3>Your Trips</h3>
-            {trips.map((trip) => (
-              <div key={trip.id} className="trip-card" onClick={() => handleTripSelection(trip)}>
-                <h4>{trip.tripName}</h4>
-                <p>{trip.startDate} - {trip.endDate}</p>
-              </div>
-            ))}
-          </div>
-        )}
+    {trips.length > 0 && (
+      <div className="trip-list">
+        <h3>Your Trips</h3>
+        {trips.map((trip) => (
+  <div key={trip.id} className="trip-card">
+    <div className="trip-details" onClick={() => handleTripSelection(trip)}>
+      <h4>{trip.tripName}</h4>
+      <p>{trip.startDate} - {trip.endDate}</p>
+    </div>
+
+    <div className="trip-actions">
+      <button onClick={() => handleEditTrip(trip)}>📝</button>
+      <button onClick={() => handleDeleteTrip(trip.id)}>🗑️</button>
+    </div>
+  </div>
+))}
+
+      </div>
+    )}
+
 
         <div className="actions-section">
           <button className="action-btn upload-btn" onClick={() => setUploadPopupOpen(true)}>📄 Upload Doc</button>

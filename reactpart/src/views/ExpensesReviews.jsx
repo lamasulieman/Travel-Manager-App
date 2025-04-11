@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchExpenses, addExpenseToTrip } from "../controllers/tripController";
+import { fetchExpenses, addExpenseToTrip , updateExpense,deleteExpense } from "../controllers/tripController";
 import "../styles/Expense.css";
 
 const Expenses = () => {
@@ -9,6 +9,8 @@ const Expenses = () => {
   const [category, setCategory] = useState("");
   const [name, setName] = useState("");
   const [selectedTrip, setSelectedTrip] = useState(localStorage.getItem("currentTripId"));
+  const [editingExpense, setEditingExpense] = useState(null);
+
 
   useEffect(() => {
     const loadExpenses = async () => {
@@ -39,6 +41,48 @@ const Expenses = () => {
     }
   };
 
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setName(expense.name);
+    setCategory(expense.category);
+    setAmount(expense.amount);
+  
+    // ✅ Show the form
+    const form = document.getElementById("expenseForm");
+    if (form) {
+      form.style.display = "block";
+    }
+  };
+  
+  
+  const handleUpdateExpense = async () => {
+    try {
+      await updateExpense(selectedTrip, editingExpense.id, { name, category, amount: parseFloat(amount) });
+      alert("Expense updated!");
+      setEditingExpense(null);
+      setName("");
+      setCategory("");
+      setAmount("");
+      const updatedExpenses = await fetchExpenses(selectedTrip);
+      setExpenses(updatedExpenses);
+    } catch (err) {
+      console.error("Error updating expense:", err);
+    }
+  };
+  
+  const handleDeleteExpense = async (expenseId) => {
+    if (window.confirm("Are you sure you want to delete this expense?")) {
+      try {
+        await deleteExpense(selectedTrip, expenseId);
+        const updatedExpenses = await fetchExpenses(selectedTrip);
+        setExpenses(updatedExpenses);
+      } catch (err) {
+        console.error("Error deleting expense:", err);
+      }
+    }
+  };
+  
+
   const totalExpenses = expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
   const filteredExpenses = expenses.filter(expense =>
     expense.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -66,8 +110,8 @@ const Expenses = () => {
       <button onClick={() => document.getElementById("expenseForm").style.display = "block"}>+ Add Expense</button>
 
       <div id="expenseForm" style={{ display: "none" }}>
-        <input type="text" placeholder="Expense Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <input type="number" placeholder="Amount ($)" value={amount} onChange={(e) => setAmount(e.target.value)} />
+      <input type="text" placeholder="Expense Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <input type="number" placeholder="Amount ($)" value={amount} onChange={(e) => setAmount(e.target.value)} />   
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">Select Category</option>
           <option value="Food">Food</option>
@@ -79,7 +123,10 @@ const Expenses = () => {
           <option value="Flight">Other</option>
 
         </select>
-        <button onClick={handleAddExpense}>Save Expense</button>
+        <button onClick={editingExpense ? handleUpdateExpense : handleAddExpense}>
+          {editingExpense ? "Update Expense" : "Save Expense"}
+        </button>
+
       </div>
 
       <div className="expense-list">
@@ -88,6 +135,8 @@ const Expenses = () => {
             <span className="expense-name">{expense.name}</span>
             <span className="expense-category">{expense.category}</span>
             <span className="expense-amount">${Number(expense.amount || 0).toFixed(2)}</span>
+            <button onClick={() => handleEditExpense(expense)}>📝</button>
+            <button onClick={() => handleDeleteExpense(expense.id)}>🗑️</button>
             </div>
         ))}
       </div>

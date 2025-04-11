@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import { getFirestore, collection, addDoc, getDocs, query, where,doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth } from "./authController"; 
 import { app } from "../services/firebaseConfig";
@@ -19,6 +19,27 @@ export const addTrip = async (tripName, startDate, endDate) => {
 
   return docRef.id; 
 };
+// 🔁 Edit Trip
+export const updateTrip = async (tripId, updatedFields) => {
+  const tripRef = doc(db, "Trips", tripId);
+  await updateDoc(tripRef, updatedFields);
+};
+
+// ❌ Delete Trip
+export const deleteTrip = async (tripId) => {
+  const tripRef = doc(db, "Trips", tripId);
+  await deleteDoc(tripRef);
+};
+
+export const updateActivity = async (tripId, activityId, updatedData) => {
+  const activityRef = doc(db, "Trips", tripId, "activities", activityId);
+  await updateDoc(activityRef, updatedData);
+};
+export const deleteActivity = async (tripId, activityId) => {
+  const activityRef = doc(db, "Trips", tripId, "activities", activityId);
+  await deleteDoc(activityRef);
+};
+
 
 export const addExpenseToTrip = async (tripId, name, category, amount) => {
   const user = auth.currentUser;
@@ -44,6 +65,16 @@ export const fetchExpenses = async (tripId) => {
     console.error("Error fetching expenses:", error);
     return [];
   }
+};
+
+export const updateExpense = async (tripId, expenseId, updatedData) => {
+  const expenseRef = doc(db, "Trips", tripId, "expenses", expenseId);
+  await updateDoc(expenseRef, updatedData);
+};
+
+export const deleteExpense = async (tripId, expenseId) => {
+  const expenseRef = doc(db, "Trips", tripId, "expenses", expenseId);
+  await deleteDoc(expenseRef);
 };
 
 export const uploadFile = async (file, tripId) => {
