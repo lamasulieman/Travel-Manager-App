@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchActivities, deleteActivity , updateActivity } from "../controllers/tripController";
+import { subscribeToActivities, deleteActivity , updateActivity } from "../controllers/tripController";
 import Navbar from "../components/Navbar";
 import "../styles/Itinerary.css";
 
@@ -16,46 +16,58 @@ const ItineraryView = () => {
   const [editLocation, setEditLocation] = useState("");
   const [editNotes, setEditNotes] = useState("");
 
-
   useEffect(() => {
     const storedTripId = localStorage.getItem("currentTripId");
-    console.log("Using stored trip ID:", storedTripId);
-    
-    if (storedTripId) {
-      setCurrentTripId(storedTripId);
-      fetchTripActivities(storedTripId);
-    }
-  }, []);
-
-  const getTitle = (activity) => {
-    if (activity.name?.toLowerCase() === "tour" && activity["name(s)"]) {
-      return `Tour with ${activity["name(s)"]}`;
-    } else if (activity.name?.toLowerCase() === "museum entry" && activity["name(s)"]) {
-      return `Entry to ${activity["name(s)"]}`;
-    }
-    return activity.name || "Activity";
-  };
+    if (!storedTripId) return;
   
-
-  const fetchTripActivities = async (tripId) => {
-    try {
-      const activities = await fetchActivities(tripId);
-
-      // Group activities by date and sort them by time
-      const groupedActivities = activities.reduce((acc, activity) => {
+    setCurrentTripId(storedTripId);
+  
+    const unsubscribe = subscribeToActivities(storedTripId, (activities) => {
+      const grouped = activities.reduce((acc, activity) => {
         const { date, time } = activity;
         if (!acc[date]) acc[date] = [];
         acc[date].push(activity);
-        acc[date].sort((a, b) => a.time.localeCompare(b.time)); // Sort by time
+        acc[date].sort((a, b) => a.time.localeCompare(b.time));
         return acc;
       }, {});
-
-      setActivitiesByDate(groupedActivities);
+      setActivitiesByDate(grouped);
       setLoading(false);
-    } catch (error) {
-      console.error("Error fetching activities:", error);
+    });
+  
+    return () => unsubscribe(); // Cleanup on unmount
+  }, []);
+  
+  const getTitle = (activity) => {
+    const type = activity.activityType?.toLowerCase();
+  
+    if (!type) return activity.name || "Activity";
+  
+    switch (type) {
+      case "tour":
+        return activity.name || "Guided Tour";
+  
+      case "museum":
+        return activity.name?.toLowerCase().includes("entry")
+          ? `Entry to ${activity.name.replace(/entry/i, "").trim()}`
+          : activity.name || "Museum Visit";
+  
+      case "accommodation":
+        return activity.name || "Accommodation";
+  
+      case "flight":
+      case "train":
+      case "bus":
+        return activity.name || `${type.charAt(0).toUpperCase() + type.slice(1)} Trip`;
+  
+      case "restaurant":
+        return activity.name || "Meal Reservation";
+  
+      default:
+        return activity.name || "Activity";
     }
   };
+  
+  
 
   const handleEditActivity = (activity) => {
     setEditingActivity(activity);
@@ -79,7 +91,6 @@ const ItineraryView = () => {
   
       setEditFormVisible(false);
       setEditingActivity(null);
-      await fetchTripActivities(currentTripId); // refresh list
     } catch (err) {
       console.error("Error updating activity:", err);
     }
@@ -89,7 +100,6 @@ const ItineraryView = () => {
     if (window.confirm("Are you sure you want to delete this activity?")) {
       try {
         await deleteActivity(currentTripId, activityId);
-        await fetchTripActivities(currentTripId);
       } catch (err) {
         console.error("Error deleting activity:", err);
       }
@@ -120,12 +130,30 @@ const ItineraryView = () => {
               <div className="activity-list">
                 {activitiesByDate[date].map((activity) => (
                   <div key={activity.id} className="activity-card">
-                    <p><strong>🕒 {activity.time} - {getTitle(activity)}</strong></p>
-                    <p>📍 {activity.location}</p>
-                    {activity.notes && <p>📝 {activity.notes}</p>}
-                    <button onClick={() => handleEditActivity(activity)}>📝</button>
-                    <button onClick={() => handleDeleteActivity(activity.id)}>🗑️</button>
-                  </div>
+                  <p><strong>{getTitle(activity)}</strong></p>
+                
+                  {/* Render time safely based on type */}
+                  {activity.activityType === "Accommodation" && typeof activity.time === "object" && (
+                    <>
+                      <p>🕒 Check-in: {activity.time.check_in}</p>
+                      <p>🕒 Check-out: {activity.time.check_out}</p>
+                    </>
+                  )}
+                
+                  {["Bus", "Train", "Flight", "Tour", "Museum", "Restaurant", "Other"].includes(activity.activityType) && typeof activity.time === "string" && (
+                    <p>🕒 {activity.time}</p>
+                  )}
+                
+                  {!activity.activityType && typeof activity.time === "string" && (
+                    <p>🕒 {activity.time}</p>
+                  )}
+                
+                  <p>📍 {activity.location}</p>
+                  {activity.notes && <p>📝 {activity.notes}</p>}
+                  <button onClick={() => handleEditActivity(activity)}>📝</button>
+                  <button onClick={() => handleDeleteActivity(activity.id)}>🗑️</button>
+                </div>
+                
                 ))}
               </div>
             )}

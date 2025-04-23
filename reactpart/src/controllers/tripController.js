@@ -1,4 +1,4 @@
-import { getFirestore, collection, addDoc, getDocs, query, where,doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection,onSnapshot, addDoc, getDocs, query, where,doc, updateDoc, deleteDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth } from "./authController"; 
 import { app } from "../services/firebaseConfig";
@@ -10,22 +10,25 @@ export const addTrip = async (tripName, startDate, endDate) => {
   const user = auth.currentUser;
   if (!user) throw new Error("User not logged in.");
 
+  const userRef = doc(db, "users", user.uid);
+
   const docRef = await addDoc(collection(db, "Trips"), {
     tripName,
     startDate,
     endDate,
-    createdBy: user.uid,
+    createdBy: userRef,
+    createdAt: new Date()  
   });
 
-  return docRef.id; 
+  return docRef.id;
 };
-// 🔁 Edit Trip
+// Edit Trip
 export const updateTrip = async (tripId, updatedFields) => {
   const tripRef = doc(db, "Trips", tripId);
   await updateDoc(tripRef, updatedFields);
 };
 
-// ❌ Delete Trip
+//  Delete Trip
 export const deleteTrip = async (tripId) => {
   const tripRef = doc(db, "Trips", tripId);
   await deleteDoc(tripRef);
@@ -50,6 +53,18 @@ export const addExpenseToTrip = async (tripId, name, category, amount) => {
     category, 
     amount: Number(amount), 
     createdBy: user.uid,
+  });
+};
+
+export const subscribeToExpenses = (tripId, onUpdate) => {
+  const expensesRef = collection(db, "Trips", tripId, "expenses");
+
+  return onSnapshot(expensesRef, (snapshot) => {
+    const updatedExpenses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    onUpdate(updatedExpenses);
   });
 };
 
@@ -95,7 +110,7 @@ export const uploadFile = async (file, tripId) => {
       name: file.name,
       url: downloadURL,
       uploadedAt: new Date().toISOString(),
-      tripId, // ✅ associate with trip
+      tripId, //  associate with trip
     });
 
     return downloadURL;
@@ -120,10 +135,14 @@ export const getUserTrips = async () => {
   const user = auth.currentUser;
   if (!user) return [];
 
-  const tripsQuery = query(collection(db, "Trips"), where("createdBy", "==", user.uid));
-  const snapshot = await getDocs(tripsQuery);
+  const userRef = doc(db, "users", user.uid); // reference to the user doc
+  const tripsRef = collection(db, "Trips");
+  const q = query(tripsRef, where("createdBy", "==", userRef));
 
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const snapshot = await getDocs(q);
+  const trips = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+
+  return trips;
 };
 
 export const addActivityToTrip = async (tripId, name, date, time, location, notes) => {
@@ -140,11 +159,14 @@ export const addActivityToTrip = async (tripId, name, date, time, location, note
   });
 };
 
-export const fetchActivities = async (tripId) => {
-  if (!tripId) return [];
+export const subscribeToActivities = (tripId, onUpdate) => {
+  const activitiesRef = collection(db, "Trips", tripId, "activities");
 
-  const activitiesCollectionRef = collection(db, "Trips", tripId, "activities");
-  const querySnapshot = await getDocs(activitiesCollectionRef);
-
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return onSnapshot(activitiesRef, (snapshot) => {
+    const activities = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    onUpdate(activities);
+  });
 };

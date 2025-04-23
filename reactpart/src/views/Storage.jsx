@@ -1,18 +1,17 @@
 import React, { useState, useEffect } from "react";
 import {
   uploadFile,
-  fetchTripFiles,
   addActivityToTrip,
   addExpenseToTrip,
 } from "../controllers/tripController";
 import {
-  getFirestore,
   collection,
   getDocs,
   query,
   orderBy,
   limit,
   where,
+  doc,
 } from "firebase/firestore";
 import { db, auth } from "../services/firebaseConfig";
 import "../styles/Storage.css";
@@ -73,30 +72,50 @@ const Storage = () => {
             setPopupView("ai");
             setAiText(data.parsed || "No AI results found.");
 
-            // Attempt auto-insert into trip
             try {
-              const parsed = JSON.parse(data.parsed);
-              const activityName = `${parsed.transport_mode} from ${parsed.from} to ${parsed.to}`;
-              addActivityToTrip(
-                selectedTripId,
-                activityName,
-                parsed.date || "",
-                parsed.time || "",
-                parsed.from || "",
-                "Auto-added from uploaded document"
-              );
+              const parsedArray = Array.isArray(data.parsed) ? data.parsed : JSON.parse(data.parsed);
+              setAiText(parsedArray);
+            
+              parsedArray.forEach((activity) => {
+                const {
+                  activityTitle,
+                  activityType,
+                  date,
+                  time,
+                  location,
+                  price,
+                  notes,
+                } = activity;
+            
+                const loc = typeof location === "object"
+                  ? location.location || location.from || ""
+                  : location;
+            
+                addActivityToTrip(
+                  selectedTripId,
+                  activityTitle || "Activity",
+                  date || "",
+                  time || "",
+                  loc,
+                  notes || ""
+                );
+            
+                const cleanPrice = parsedArray.price
+                  ? parseFloat(parsedArray.price.replace(/[^0-9.]/g, ""))
+                  : 0;
 
-              if (parsed.price) {
                 addExpenseToTrip(
                   selectedTripId,
-                  `Expense for ${activityName}`,
-                  "Transport",
-                  parseFloat(parsed.price.replace(/[^0-9.]/g, "")) || 0
+                  `${activityTitle}`,
+                  parsedArray.activityType || "Other",
+                  cleanPrice
                 );
-              }
+
+              });
             } catch (error) {
               console.error("Failed to auto-add activity/expense:", error);
             }
+            
           }, 3000);
           return;
         }
@@ -126,24 +145,39 @@ const Storage = () => {
   const fetchUserTrips = async () => {
     const user = auth.currentUser;
     if (!user) return;
-
-    const tripsCollection = collection(db, "Trips");
-    const snapshot = await getDocs(tripsCollection);
-    const trips = snapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .filter((trip) => trip.createdBy === user.uid);
-
-    setUserTrips(trips);
-    if (trips.length > 0) setSelectedTripId(trips[0].id);
+  
+    const userRef = doc(db, "users", user.uid);  // ✅ correct ref
+    const tripsQuery = query(
+      collection(db, "Trips"),
+      where("createdBy", "==", userRef)
+    );
+  
+    try {
+      const snapshot = await getDocs(tripsQuery);  // ✅ snapshot is now defined
+      const trips = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+  
+      setUserTrips(trips);
+      if (trips.length > 0) {
+        setSelectedTripId(trips[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching trips:", error);
+    }
   };
+  
 
   useEffect(() => {
     fetchUserTrips();
   }, []);
 
   useEffect(() => {
-    fetchUserFiles();
+    const run = async () => await fetchUserFiles();
+    run();
   }, [selectedTripId]);
+  
 
   const filteredFiles = files.filter((file) =>
     file.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -214,7 +248,9 @@ const Storage = () => {
             {popupView === "ai" && (
               <>
                 <h4>🧠 AI Extracted Info</h4>
-                <pre className="popup-text">{aiText}</pre>
+                <pre className="popup-text">
+                  {typeof aiText === "string" ? aiText : JSON.stringify(aiText, null, 2)}
+                </pre>
                 <button className="close-btn" onClick={() => setShowPopup(false)}>
                   Close
                 </button>

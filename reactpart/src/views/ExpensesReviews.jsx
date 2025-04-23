@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { fetchExpenses, addExpenseToTrip , updateExpense,deleteExpense } from "../controllers/tripController";
+import { addExpenseToTrip , updateExpense,deleteExpense ,subscribeToExpenses} from "../controllers/tripController";
 import "../styles/Expense.css";
 
 const Expenses = () => {
@@ -13,13 +13,11 @@ const Expenses = () => {
 
 
   useEffect(() => {
-    const loadExpenses = async () => {
-      if (selectedTrip) {
-        const tripExpenses = await fetchExpenses(selectedTrip);
-        setExpenses(tripExpenses);
-      }
-    };
-    loadExpenses();
+    if (!selectedTrip) return;
+  
+    const unsubscribe = subscribeToExpenses(selectedTrip, setExpenses);
+  
+    return () => unsubscribe(); 
   }, [selectedTrip]);
 
   const handleAddExpense = async () => {
@@ -27,15 +25,13 @@ const Expenses = () => {
       alert("Please fill in all fields.");
       return;
     }
-
+  
     try {
       await addExpenseToTrip(selectedTrip, name, category, parseFloat(amount));
       alert("Expense added successfully!");
       setName("");
       setCategory("");
       setAmount("");
-      const updatedExpenses = await fetchExpenses(selectedTrip);
-      setExpenses(updatedExpenses);
     } catch (error) {
       console.error("Error adding expense:", error);
     }
@@ -47,7 +43,7 @@ const Expenses = () => {
     setCategory(expense.category);
     setAmount(expense.amount);
   
-    // ✅ Show the form
+    //  Show the form
     const form = document.getElementById("expenseForm");
     if (form) {
       form.style.display = "block";
@@ -63,8 +59,7 @@ const Expenses = () => {
       setName("");
       setCategory("");
       setAmount("");
-      const updatedExpenses = await fetchExpenses(selectedTrip);
-      setExpenses(updatedExpenses);
+     
     } catch (err) {
       console.error("Error updating expense:", err);
     }
@@ -74,8 +69,6 @@ const Expenses = () => {
     if (window.confirm("Are you sure you want to delete this expense?")) {
       try {
         await deleteExpense(selectedTrip, expenseId);
-        const updatedExpenses = await fetchExpenses(selectedTrip);
-        setExpenses(updatedExpenses);
       } catch (err) {
         console.error("Error deleting expense:", err);
       }
@@ -120,7 +113,7 @@ const Expenses = () => {
           <option value="Hotel">Hotel</option>
           <option value="Activity">Activity</option>
           <option value="Flight">Flight</option>
-          <option value="Flight">Other</option>
+          <option value="Other">Other</option>
 
         </select>
         <button onClick={editingExpense ? handleUpdateExpense : handleAddExpense}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getUserTrips, addTrip, addActivityToTrip, fetchActivities ,addExpenseToTrip , uploadFile , fetchExpenses,updateTrip,deleteTrip} from "../controllers/tripController";
+import { getUserTrips, addTrip, addActivityToTrip, subscribeToActivities ,addExpenseToTrip , uploadFile , subscribeToExpenses,updateTrip,deleteTrip} from "../controllers/tripController";
 import Navbar from "../components/Navbar";
 import "../styles/Main.css";
 
@@ -14,7 +14,6 @@ const MainDashboard = () => {
   const [isActivityPopupOpen, setActivityPopupOpen] = useState(false);
   const [isReviewPopupOpen, setReviewPopupOpen] = useState(false);
   const [isExpensePopupOpen, setExpensePopupOpen] = useState(false);
-  const [selectedActivity, setSelectedActivity] = useState("");
   const [selectedTrip, setSelectedTrip] = useState(null);
   const [selectedTripForActivity, setSelectedTripForActivity] = useState("");
   const [activityName, setActivityName] = useState("");
@@ -28,64 +27,91 @@ const MainDashboard = () => {
   const [selectedTripForExpense, setSelectedTripForExpense] = useState("");
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedTripForUpload, setSelectedTripForUpload] = useState("");
+  const [selectedActivity, setSelectedActivity] = useState("");
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [expenseCount, setExpenseCount] = useState(0);
 
   
   useEffect(() => {
+    let unsubscribeActivities;
+    let unsubscribeExpenses;
+  
     const fetchTrips = async () => {
       try {
         const userTrips = await getUserTrips();
         setTrips(userTrips);
+  
         if (userTrips.length > 0) {
-          setSelectedTrip(userTrips[0]); 
-          localStorage.setItem("currentTripId", userTrips[0].id);
-          fetchNextActivity(userTrips[0].id);
-          fetchTripExpenses(userTrips[0].id); 
+          const tripId = userTrips[0].id;
+          setSelectedTrip(userTrips[0]);
+          localStorage.setItem("currentTripId", tripId);
+  
+          unsubscribeActivities = subscribeToActivities(tripId, (activities) => {
+            const upcoming = activities
+              .filter((a) => new Date(a.date) >= new Date())
+              .sort((a, b) => new Date(a.date) - new Date(b.date));
+            setNextActivity(upcoming[0] || null);
+          });
+  
+          const unsubscribe = subscribeToExpenses(userTrips[0].id, (expenses) => {
+            const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+            setTotalExpenses(total);
+            setExpenseCount(expenses.length);
+          });
+          
         }
       } catch (error) {
         console.error("Error fetching trips:", error);
       }
     };
-
+  
     fetchTrips();
+  
+    return () => {
+      unsubscribeActivities?.();
+      unsubscribeExpenses?.();
+    };
   }, []);
 
   const handleTripSelection = (trip) => {
     setSelectedTrip(trip);
     localStorage.setItem("currentTripId", trip.id);
     console.log("Updated trip ID in storage:", trip.id);
-    fetchNextActivity(trip.id);
-    fetchTripExpenses(trip.id); 
-  };
-
-  const fetchNextActivity = async (tripId) => {
-    try {
-      const activities = await fetchActivities(tripId);
-      const upcoming = activities
-        .filter((activity) => new Date(activity.date) >= new Date())
-        .sort((a, b) => new Date(a.date) - new Date(b.date));
-      setNextActivity(upcoming.length > 0 ? upcoming[0] : null);
-    } catch (error) {
-      console.error("Error fetching activities:", error);
-    }
-  };
-  const fetchTripExpenses = async (tripId) => {
-    if (!tripId) return;
   
-    try {
-      const expenses = await fetchExpenses(tripId);
-      const total =  expenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
-
-      
+    // Fetch next activity via real-time updates
+    fetchNextActivity(trip.id);
+  
+    // ✅ Properly subscribe to expenses with callback
+    subscribeToExpenses(trip.id, (expenses) => {
+      const total = expenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
       setTotalExpenses(total);
       setExpenseCount(expenses.length);
-      
-      console.log("Fetched expenses:", expenses);
-    } catch (error) {
-      console.error("Error fetching expenses:", error);
-    }
+    });
   };
+  ;
+
+  const fetchNextActivity = (tripId) => {
+    subscribeToActivities(tripId, (activities) => {
+      const now = new Date();
+  
+      const upcoming = activities
+        .filter((activity) => {
+          const activityDateTime = new Date(`${activity.date}T${activity.time}`);
+          return activityDateTime >= now;
+        })
+        .sort((a, b) => {
+          const aTime = new Date(`${a.date}T${a.time}`);
+          const bTime = new Date(`${b.date}T${b.time}`);
+          return aTime - bTime;
+        });
+  
+      setNextActivity(upcoming.length > 0 ? upcoming[0] : null);
+    });
+  };
+  
+  
+
+  
   
 
   const handleAddTrip = async (e) => {
@@ -93,7 +119,6 @@ const MainDashboard = () => {
   
     try {
       if (selectedTrip) {
-        // Editing
         await updateTrip(selectedTrip.id, {
           tripName,
           startDate,
@@ -399,10 +424,10 @@ const handleEditTrip = (trip) => {
         <option value="Food">Food</option>
         <option value="Transport">Transport</option>
         <option value="Shopping">Shopping</option>
-        <option value="Shopping">Hotel</option>
-        <option value="Shopping">Activity</option>
-        <option value="Shopping">Flight</option>
-        <option value="Shopping">Other</option>
+        <option value="Hotel">Hotel</option>
+        <option value="Activity">Activity</option>
+        <option value="Flight">Flight</option>
+        <option value="Other">Other</option>
 
       </select>
       <textarea

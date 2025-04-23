@@ -1,9 +1,10 @@
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-
-const db = getFirestore();
-
+const {db, FieldValue} = require("../firebaseAdmin");
 /**
- * Save OCR result and AI-parsed data to Firestore
+ * Saves OCR result to Firestore.
+ *
+ * @param {string} fileName
+ * @param {string} extractedText
+ * @param {Array} parsedData
  */
 const saveOCRResult = async (fileName, extractedText, parsedData) => {
   try {
@@ -19,4 +20,4 @@ const saveOCRResult = async (fileName, extractedText, parsedData) => {
   }
 };
 
-module.exports = { saveOCRResult };
+module.exports = {saveOCRResult};
