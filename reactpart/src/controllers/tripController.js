@@ -31,7 +31,30 @@ export const updateTrip = async (tripId, updatedFields) => {
 //  Delete Trip
 export const deleteTrip = async (tripId) => {
   const tripRef = doc(db, "Trips", tripId);
-  await deleteDoc(tripRef);
+
+  try {
+    // Delete activities
+    const activitiesSnapshot = await getDocs(collection(db, "Trips", tripId, "activities"));
+    const activityDeletions = activitiesSnapshot.docs.map((docSnap) =>
+      deleteDoc(doc(db, "Trips", tripId, "activities", docSnap.id))
+    );
+
+    // Delete expenses
+    const expensesSnapshot = await getDocs(collection(db, "Trips", tripId, "expenses"));
+    const expenseDeletions = expensesSnapshot.docs.map((docSnap) =>
+      deleteDoc(doc(db, "Trips", tripId, "expenses", docSnap.id))
+    );
+
+    // Wait for all activities and expenses to be deleted
+    await Promise.all([...activityDeletions, ...expenseDeletions]);
+
+    // Now delete the trip itself
+    await deleteDoc(tripRef);
+
+  } catch (error) {
+    console.error("Error deleting trip and subcollections:", error);
+    throw error;
+  }
 };
 
 export const updateActivity = async (tripId, activityId, updatedData) => {
@@ -56,17 +79,7 @@ export const addExpenseToTrip = async (tripId, name, category, amount) => {
   });
 };
 
-export const subscribeToExpenses = (tripId, onUpdate) => {
-  const expensesRef = collection(db, "Trips", tripId, "expenses");
 
-  return onSnapshot(expensesRef, (snapshot) => {
-    const updatedExpenses = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-    onUpdate(updatedExpenses);
-  });
-};
 
 export const fetchExpenses = async (tripId) => {
   if (!tripId) return [];
@@ -168,5 +181,16 @@ export const subscribeToActivities = (tripId, onUpdate) => {
       ...doc.data(),
     }));
     onUpdate(activities);
+  });
+};
+export const subscribeToExpenses = (tripId, onUpdate) => {
+  const expensesRef = collection(db, "Trips", tripId, "expenses");
+
+  return onSnapshot(expensesRef, (snapshot) => {
+    const updatedExpenses = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+    onUpdate(updatedExpenses);
   });
 };
