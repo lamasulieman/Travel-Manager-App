@@ -126,21 +126,34 @@ const MainDashboard = () => {
         });
         alert("Trip updated!");
       } else {
-        // New trip
-        await addTrip(tripName, startDate, endDate);
+        // New trip creation
+        const newTripId = await addTrip(tripName, startDate, endDate);
         alert("Trip added!");
+  
+        // Fetch updated trips
+        const updatedTrips = await getUserTrips();
+        setTrips(updatedTrips);
+  
+        // Find the newly created trip
+        const newlyCreatedTrip = updatedTrips.find((trip) => trip.id === newTripId);
+  
+        if (newlyCreatedTrip) {
+          setSelectedTrip(newlyCreatedTrip);
+          localStorage.setItem("currentTripId", newTripId);
+        }
       }
   
       setTripName("");
       setStartDate("");
       setEndDate("");
       setTripPopupOpen(false);
-      setSelectedTrip(null);
-      window.location.reload();
+      // No window.location.reload() needed!
+
     } catch (error) {
       console.error("Error adding/editing trip:", error);
     }
   };
+  
   
 
   // 🗑️ DELETE
@@ -258,7 +271,11 @@ const handleEditTrip = (trip) => {
       <div className="dashboard-content">
         <div className="dashboard-header">
           <h2>Welcome to Your Trip Planner</h2>
-          <button className="new-journey-btn" onClick={() => setTripPopupOpen(true)}>
+          <button className="new-journey-btn" onClick={() => {
+                setTripPopupOpen(true);
+                setSelectedTrip(null);
+              }}
+              >
             + Plan a New Journey
           </button>
           {isTripPopupOpen && (
