@@ -4,7 +4,7 @@ TravelMan is a full-stack web application that automates travel itinerary organi
 
 Instead of manually copying data from emails and booking confirmations, users simply upload screenshots of flights, hotels, or tickets. The system extracts key information using OCR and AI, then automatically generates a structured itinerary.
 
-This project was developed as a Bachelor Thesis (Computer Science BSc, ELTE, 2024).
+This project was developed as a Bachelor Thesis (Computer Science BSc, ELTE, 2025).
 
 ---
 
